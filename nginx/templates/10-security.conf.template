@@ -1,0 +1,29 @@
+# Rendered by envsubst at container start (nginx image: /etc/nginx/templates -> conf.d).
+# Only the variables defined in the environment are substituted; nginx variables stay.
+
+# Rate limiting: stateless, per client IP (10 requests/second, bursts of 20 per route).
+limit_req_zone $binary_remote_addr zone=per_client:10m rate=10r/s;
+limit_req_status 429;
+
+# CORS: only the front-end origins, matched by an ANCHORED regex so a lookalike
+# origin (http://localhost:42000, http://localhost:4200.evil.com) is not granted.
+# Never '*' together with credentials.
+map $http_origin $cors_origin {
+    default "";
+    "~^${APP_GATEWAY_CORS_ORIGIN_REGEX}$" $http_origin;
+}
+
+# Correlation: reuse the X-Correlation-Id the client sent, or create one. It goes
+# to the service, back to the client, and into every access-log line.
+map $http_x_correlation_id $correlation_id {
+    default $http_x_correlation_id;
+    ""      $request_id;
+}
+
+# Cheap authentication filter: a protected route with no Authorization header is
+# rejected here, before reaching any service. This is NOT token validation: every
+# service validates the token itself.
+map $http_authorization $missing_auth {
+    default 0;
+    ""      1;
+}
