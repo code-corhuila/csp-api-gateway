@@ -1,0 +1,6 @@
+# Rendered by envsubst at container start. One variable per domain holds the base URL
+# (scheme, host, port; no path) of its service. A map keeps the value in a nginx variable,
+# so the route files stay free of hosts and proxy_pass resolves the name on every request.
+map "" $auth_upstream {
+    default "${APP_GATEWAY_AUTH_UPSTREAM}";
+}
