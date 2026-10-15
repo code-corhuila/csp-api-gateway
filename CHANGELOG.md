@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-15
+
 ### Added
 - Base scaffold of the declarative NGINX gateway (Annex F): `nginx/` configuration,
   `deploy/Dockerfile` and `deploy/compose.yml` (service `api-gateway`, port 8000),
