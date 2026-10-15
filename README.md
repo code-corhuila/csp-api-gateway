@@ -48,7 +48,7 @@ See `.env.example`.
 |---|---|---|
 | `/health` | the gateway itself | public |
 | `/api/v1/auth/{register,login,refresh,forgot-password,reset-password,jwks,health,health/ready}` | `csp-auth-api` | public |
-| `/api/v1/auth/{logout,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
+| `/api/v1/auth/{logout,users,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
 | `/api/v1/auth/internal/*` | `csp-auth-api` | never exposed (404): `csp-worker` calls the service directly |
 
 Anything else answers 404. The gateway only checks that `Authorization` is present; each service
