@@ -26,9 +26,9 @@ validate tokens (each service does, norm 5.6.2), keeps no state and has no busin
 ```
 nginx/nginx.conf               global settings, JSON access log with correlationId
 nginx/conf.d/                  per-request DNS resolver, server with the gateway's own errors
-nginx/templates/               security settings rendered by envsubst at start (rate limit, CORS)
-nginx/snippets/headers.conf    headers every response carries
-nginx/routes/                  one file per domain, plus _health.conf
+nginx/templates/               settings rendered by envsubst at start (rate limit, CORS, service upstreams)
+nginx/snippets/                headers every response carries, rate limit and preflight, credential filter
+nginx/routes/                  one file per domain (auth.conf), plus _health.conf
 tests/smoke.sh                 checks the gateway must pass
 deploy/                        Dockerfile and compose.yml
 ```
@@ -38,13 +38,30 @@ deploy/                        Dockerfile and compose.yml
 | Variable | Meaning |
 |---|---|
 | `APP_GATEWAY_CORS_ORIGIN_REGEX` | Allowed browser origins, anchored by the gateway (`^...$`). Default: shell `4200` and remotes `4201`-`4205`. |
+| `APP_GATEWAY_AUTH_UPSTREAM` | Base URL of `csp-auth-api` (scheme, host, port; no path). Default: `http://auth-api:8081`. |
 
 See `.env.example`.
 
+## Routes
+
+| Path | Service | Authorization at the gateway |
+|---|---|---|
+| `/health` | the gateway itself | public |
+| `/api/v1/auth/{register,login,refresh,forgot-password,reset-password,jwks,health,health/ready}` | `csp-auth-api` | public |
+| `/api/v1/auth/{logout,users,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
+| `/api/v1/auth/internal/*` | `csp-auth-api` | never exposed (404): `csp-worker` calls the service directly |
+
+Anything else answers 404. The gateway only checks that `Authorization` is present; each service
+validates the token.
+
 ## Adding a domain
 
-1. Create `nginx/routes/<domain>.conf` with its `location` blocks and a **variable** in
-   `proxy_pass` (`set $x http://host:port; proxy_pass $x;`) so the name is resolved per request.
+1. Add `APP_GATEWAY_<DOMAIN>_UPSTREAM` to `nginx/templates/20-upstreams.conf.template`, the
+   Dockerfile, `deploy/compose.yml` and `.env.example`. Create `nginx/routes/<domain>.conf` with
+   its `location` blocks and a **variable** in `proxy_pass` (`proxy_pass $<domain>_upstream;`) so
+   the name is resolved per request. Start each proxied `location` with
+   `snippets/route-common.conf` (rate limit, preflight) and add `snippets/require-auth.conf` to
+   the protected ones.
 2. Include `snippets/headers.conf` in any `location` that adds its own headers.
 3. Extend `tests/smoke.sh`; the CI runs it on every Pull Request.
 
