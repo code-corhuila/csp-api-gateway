@@ -1,0 +1,32 @@
+name: CI
+
+# Every Pull Request builds the repository and runs its tests on a clean machine.
+# "It works on my computer" is not evidence; a green check here is.
+
+on:
+  pull_request:
+    branches: [develop, qa, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  config-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -f deploy/Dockerfile -t gateway .
+      - name: The configuration is valid
+        run: docker run --rm gateway nginx -t
+      - name: Smoke checks
+        run: |
+          docker run -d --name gateway -p 8000:8000 gateway
+          sleep 2
+          sh tests/smoke.sh http://localhost:8000
