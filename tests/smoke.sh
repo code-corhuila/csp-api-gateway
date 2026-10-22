@@ -59,6 +59,28 @@ check    "preflight of a protected route is answered"      204 -X OPTIONS -H 'Or
 contains "preflight allows PATCH"                  'Access-Control-Allow-Methods: .*PATCH' -X OPTIONS -H 'Origin: http://localhost:4201' "$BASE$AUTH/users/1/role"
 contains "an error of a route keeps the correlation id" 'X-Correlation-Id: smoke-2' -X POST -H 'X-Correlation-Id: smoke-2' "$BASE$AUTH/logout"
 
+CATALOG=/api/v1/catalog
+check    "public billboard passes without Authorization"       503 "$BASE$CATALOG/billboard"
+check    "public billboard is routed with its query"           503 "$BASE$CATALOG/billboard?date=2026-11-01&movieId=1&page=1&limit=10"
+check    "public movie search passes without Authorization"    503 "$BASE$CATALOG/billboard/movies"
+check    "public movie search is routed with its filters"      503 "$BASE$CATALOG/billboard/movies?q=space%20action&genre=Drama&durationMax=120&page=1&limit=10"
+check    "a token sent to a public read is not refused"        503 -H 'Authorization: Bearer x' "$BASE$CATALOG/billboard"
+check    "only GET is routed on the billboard"                 404 -X POST -H 'Authorization: Bearer x' "$BASE$CATALOG/billboard"
+check    "only GET is routed on the movie search"              404 -X DELETE -H 'Authorization: Bearer x' "$BASE$CATALOG/billboard/movies"
+check    "a path under the billboard is 404"                   404 "$BASE$CATALOG/billboard/extra"
+check    "a trailing slash is 404"                             404 "$BASE$CATALOG/billboard/movies/"
+check    "the movie administration is not routed yet"          404 -H 'Authorization: Bearer x' "$BASE$CATALOG/movies"
+check    "the room administration is not routed yet"           404 -H 'Authorization: Bearer x' "$BASE$CATALOG/rooms"
+check    "the showtime administration is not routed yet"       404 -H 'Authorization: Bearer x' "$BASE$CATALOG/showtimes"
+check    "the availability of a showtime is not exposed"       404 -H 'Authorization: Bearer x' "$BASE$CATALOG/showtimes/1/availability"
+check    "a route of the catalog outside the contract is 404"  404 "$BASE$CATALOG/nope"
+contains "a 404 of the catalog keeps the error envelope"       '"error":"NOT_FOUND"' -X POST "$BASE$CATALOG/billboard"
+check    "preflight of the billboard is answered"              204 -X OPTIONS -H 'Origin: http://localhost:4203' -H 'Access-Control-Request-Method: GET' "$BASE$CATALOG/billboard"
+check    "preflight of the movie search is answered"           204 -X OPTIONS -H 'Origin: http://localhost:4203' -H 'Access-Control-Request-Method: GET' "$BASE$CATALOG/billboard/movies"
+contains "the catalog portal origin is allowed"                'Access-Control-Allow-Origin: http://localhost:4203' -H 'Origin: http://localhost:4203' "$BASE$CATALOG/billboard/movies"
+absent   "an unknown origin gets no grant on the movie search" 'Access-Control-Allow-Origin' -H 'Origin: http://evil.example' "$BASE$CATALOG/billboard/movies"
+contains "an error of a catalog route keeps the correlation id" 'X-Correlation-Id: smoke-3' -H 'X-Correlation-Id: smoke-3' "$BASE$CATALOG/billboard"
+
 # Rate limit: a burst of 60 simultaneous requests from one client exceeds the burst of 20.
 burst=$(for i in $(seq 1 60); do printf '%s?n=%s ' "$BASE$AUTH/jwks" "$i"; done)
 # shellcheck disable=SC2086

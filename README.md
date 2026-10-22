@@ -28,7 +28,7 @@ nginx/nginx.conf               global settings, JSON access log with correlation
 nginx/conf.d/                  per-request DNS resolver, server with the gateway's own errors
 nginx/templates/               settings rendered by envsubst at start (rate limit, CORS, service upstreams)
 nginx/snippets/                headers every response carries, rate limit and preflight, credential filter
-nginx/routes/                  one file per domain (auth.conf), plus _health.conf
+nginx/routes/                  one file per domain (auth.conf, catalog.conf), plus _health.conf
 tests/smoke.sh                 checks the gateway must pass
 deploy/                        Dockerfile and compose.yml
 ```
@@ -39,6 +39,7 @@ deploy/                        Dockerfile and compose.yml
 |---|---|
 | `APP_GATEWAY_CORS_ORIGIN_REGEX` | Allowed browser origins, anchored by the gateway (`^...$`). Default: shell `4200` and remotes `4201`-`4205`. |
 | `APP_GATEWAY_AUTH_UPSTREAM` | Base URL of `csp-auth-api` (scheme, host, port; no path). Default: `http://auth-api:8081`. |
+| `APP_GATEWAY_CATALOG_UPSTREAM` | Base URL of `csp-catalog-api` (scheme, host, port; no path). Default: `http://catalog-api:8082`. |
 
 See `.env.example`.
 
@@ -50,6 +51,7 @@ See `.env.example`.
 | `/api/v1/auth/{register,login,refresh,forgot-password,reset-password,jwks,health,health/ready}` | `csp-auth-api` | public |
 | `/api/v1/auth/{logout,users,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
 | `/api/v1/auth/internal/*` | `csp-auth-api` | never exposed (404): `csp-worker` calls the service directly |
+| `/api/v1/catalog/{billboard,billboard/movies}` (GET only) | `csp-catalog-api` | public |
 
 Anything else answers 404. The gateway only checks that `Authorization` is present; each service
 validates the token.
