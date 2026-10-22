@@ -6,4 +6,5 @@ COPY nginx/snippets/ /etc/nginx/snippets/
 COPY nginx/routes/ /etc/nginx/routes/
 ENV APP_GATEWAY_CORS_ORIGIN_REGEX="http://localhost:(4200|4201|4202|4203|4204|4205)"
 ENV APP_GATEWAY_AUTH_UPSTREAM="http://auth-api:8081"
+ENV APP_GATEWAY_CATALOG_UPSTREAM="http://catalog-api:8082"
 EXPOSE 8000
