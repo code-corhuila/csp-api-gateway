@@ -75,14 +75,23 @@ json_get() { printf '%s' "$BODY" | node tests/support/json.js get "$1"; }
 
 # Sends 60 simultaneous requests to the first gateway so some are rate limited (the limit is 10
 # requests/second with a burst of 20), keeps one 429 (sets STATUS, HEAD, BODY) and waits for the
-# limiter to refill. The arguments are extra curl arguments for every request.
+# limiter to refill. The arguments are extra request headers ("Name: value") for every request.
 fetch_rate_limited() {
+  : > "$WORK/burst.cfg"
   i=0
   while [ "$i" -lt 60 ]; do
-    curl -s -D "$WORK/burst$i.head" -o "$WORK/burst$i.body" "$@" "$BASE/api/v1/auth/jwks" &
+    {
+      [ "$i" -gt 0 ] && echo "next"
+      echo "url = \"$BASE/api/v1/auth/jwks\""
+      echo "output = \"burst$i.body\""
+      echo "dump-header = \"burst$i.head\""
+      for header in "$@"; do
+        printf 'header = "%s"\n' "$(printf '%s' "$header" | sed 's/[\\"]/\\&/g')"
+      done
+    } >> "$WORK/burst.cfg"
     i=$((i + 1))
   done
-  wait
+  (cd "$WORK" && curl -s --parallel --parallel-max 60 -K burst.cfg)
   STATUS=""; HEAD=""; BODY=""
   for head in "$WORK"/burst*.head; do
     if head -1 "$head" | grep -q ' 429'; then
