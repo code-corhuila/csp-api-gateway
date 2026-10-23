@@ -81,6 +81,37 @@ contains "the catalog portal origin is allowed"                'Access-Control-A
 absent   "an unknown origin gets no grant on the movie search" 'Access-Control-Allow-Origin' -H 'Origin: http://evil.example' "$BASE$CATALOG/billboard/movies"
 contains "an error of a catalog route keeps the correlation id" 'X-Correlation-Id: smoke-3' -H 'X-Correlation-Id: smoke-3' "$BASE$CATALOG/billboard"
 
+BOOKING=/api/v1/booking
+RES=11111111-1111-4111-8111-111111111111
+SHOWTIME=33333333-3333-4333-8333-333333333333
+check    "booking health passes without Authorization"         503 "$BASE$BOOKING/health"
+check    "booking readiness passes without Authorization"      503 "$BASE$BOOKING/health/ready"
+check    "a hold without Authorization is 401"                 401 -X POST "$BASE$BOOKING/holds"
+check    "a hold with Authorization reaches the service"       503 -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/holds"
+check    "only POST is routed on the holds"                    404 -H 'Authorization: Bearer x' "$BASE$BOOKING/holds"
+check    "the list of reservations without Authorization is 401" 401 "$BASE$BOOKING/reservations?page=1&limit=10"
+check    "the list of reservations is routed with its query"   503 -H 'Authorization: Bearer x' "$BASE$BOOKING/reservations?page=1&limit=10&status=HELD"
+check    "only GET is routed on the list of reservations"      404 -X DELETE -H 'Authorization: Bearer x' "$BASE$BOOKING/reservations"
+check    "a reservation without Authorization is 401"          401 "$BASE$BOOKING/reservations/$RES"
+check    "a reservation with Authorization reaches the service" 503 -H 'Authorization: Bearer x' "$BASE$BOOKING/reservations/$RES"
+check    "a confirmation without Authorization is 401"         401 -X POST "$BASE$BOOKING/reservations/$RES/confirm"
+check    "a confirmation with Authorization reaches the service" 503 -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/reservations/$RES/confirm"
+check    "only POST is routed on the confirmation"             404 -H 'Authorization: Bearer x' "$BASE$BOOKING/reservations/$RES/confirm"
+check    "the seat map without Authorization is 401"           401 "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
+check    "the seat map with Authorization reaches the service" 503 -H 'Authorization: Bearer x' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
+check    "only GET is routed on the seat map"                  404 -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
+check    "a path under the seat map is 404"                    404 -H 'Authorization: Bearer x' "$BASE$BOOKING/showtimes/$SHOWTIME/seats/A1"
+check    "the maintenance operations are not exposed"          404 -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/internal/maintenance/expire-holds"
+check    "the workflow operations are not exposed"             404 -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/internal/workflow/holds"
+contains "an internal operation answers the error envelope"    '"error":"NOT_FOUND"' -X POST -H 'Authorization: Bearer x' "$BASE$BOOKING/internal/maintenance/purge"
+check    "a route of booking outside the contract is 404"      404 "$BASE$BOOKING/nope"
+contains "a 401 of booking uses the error envelope"            '"error":"UNAUTHORIZED"' -X POST "$BASE$BOOKING/holds"
+check    "preflight of a hold is answered"                     204 -X OPTIONS -H 'Origin: http://localhost:4202' -H 'Access-Control-Request-Method: POST' "$BASE$BOOKING/holds"
+contains "preflight allows the Idempotency-Key of a hold"      'Access-Control-Allow-Headers: .*Idempotency-Key' -X OPTIONS -H 'Origin: http://localhost:4202' "$BASE$BOOKING/holds"
+contains "the booking portal origin is allowed"                'Access-Control-Allow-Origin: http://localhost:4202' -H 'Origin: http://localhost:4202' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
+absent   "an unknown origin gets no grant on the seat map"     'Access-Control-Allow-Origin' -H 'Origin: http://evil.example' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
+contains "an error of a booking route keeps the correlation id" 'X-Correlation-Id: smoke-4' -X POST -H 'X-Correlation-Id: smoke-4' "$BASE$BOOKING/holds"
+
 # Rate limit: a burst of 60 simultaneous requests from one client exceeds the burst of 20.
 burst=$(for i in $(seq 1 60); do printf '%s?n=%s ' "$BASE$AUTH/jwks" "$i"; done)
 # shellcheck disable=SC2086
