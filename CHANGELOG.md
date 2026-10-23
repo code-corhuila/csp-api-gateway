@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Route `/api/v1/booking/` to `csp-booking-api` (HU-CATALOG-005, `booking-service.yaml` 3.3.0): the health routes are public; `POST /holds`, `GET /reservations`, `GET /reservations/{id}`, `POST /reservations/{id}/confirm` and `GET /showtimes/{showtimeId}/seats` require the presence of `Authorization` and only their own method is routed; `/internal/*` (maintenance and workflow) is never exposed and any other path is the gateway's 404. New variable `APP_GATEWAY_BOOKING_UPSTREAM` (default `http://booking-api:8083`).
 - Route `/api/v1/catalog/` to `csp-catalog-api` (HU-FE-CATALOG-002): the two public reads of the contract,
   `GET /billboard` and `GET /billboard/movies`, pass without `Authorization` and any other path or method
   under it is the gateway's 404 (the administration routes and the availability of a showtime are not exposed).
