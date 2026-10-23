@@ -5,7 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Reflect the client `X-Correlation-Id` (response header, `traceId` of the gateway errors, service request, access log) only when it matches `^[A-Za-z0-9._-]{1,64}$`; otherwise the gateway generates one. A quote or backslash no longer injects fields or breaks the JSON of the errors the gateway writes (HU-AUTH-004, D8).
+
 ### Added
+- Integration checks against real gateway containers and an upstream stub (`tests/integration.sh`), run by `ci.yml`.
 - Route `/api/v1/booking/` to `csp-booking-api` (HU-CATALOG-005, `booking-service.yaml` 3.3.0): the health routes are public; `POST /holds`, `GET /reservations`, `GET /reservations/{id}`, `POST /reservations/{id}/confirm` and `GET /showtimes/{showtimeId}/seats` require the presence of `Authorization` and only their own method is routed; `/internal/*` (maintenance and workflow) is never exposed and any other path is the gateway's 404. New variable `APP_GATEWAY_BOOKING_UPSTREAM` (default `http://booking-api:8083`).
 - Route `/api/v1/catalog/` to `csp-catalog-api` (HU-FE-CATALOG-002): the two public reads of the contract,
   `GET /billboard` and `GET /billboard/movies`, pass without `Authorization` and any other path or method
