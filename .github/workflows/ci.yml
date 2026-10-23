@@ -30,3 +30,5 @@ jobs:
           docker run -d --name gateway -p 8000:8000 gateway
           sleep 2
           sh tests/smoke.sh http://localhost:8000
+      - name: Integration checks
+        run: sh tests/integration.sh
