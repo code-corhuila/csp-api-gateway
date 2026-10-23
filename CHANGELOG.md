@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Route `/api/v1/catalog/` to `csp-catalog-api` (HU-FE-CATALOG-002): the two public reads of the contract,
+  `GET /billboard` and `GET /billboard/movies`, pass without `Authorization` and any other path or method
+  under it is the gateway's 404 (the administration routes and the availability of a showtime are not exposed).
+  New variable `APP_GATEWAY_CATALOG_UPSTREAM` (default `http://catalog-api:8082`).
 - Base scaffold of the declarative NGINX gateway (Annex F): `nginx/` configuration,
   `deploy/Dockerfile` and `deploy/compose.yml` (service `api-gateway`, port 8000),
   `tests/smoke.sh` and the `ci.yml` pipeline.

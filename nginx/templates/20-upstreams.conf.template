@@ -4,3 +4,6 @@
 map "" $auth_upstream {
     default "${APP_GATEWAY_AUTH_UPSTREAM}";
 }
+map "" $catalog_upstream {
+    default "${APP_GATEWAY_CATALOG_UPSTREAM}";
+}
