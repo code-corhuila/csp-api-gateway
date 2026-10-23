@@ -7,3 +7,6 @@ map "" $auth_upstream {
 map "" $catalog_upstream {
     default "${APP_GATEWAY_CATALOG_UPSTREAM}";
 }
+map "" $booking_upstream {
+    default "${APP_GATEWAY_BOOKING_UPSTREAM}";
+}
