@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- Strip the client-supplied `X-User-Id` and `X-User-Roles` request headers before proxying, on every route (HU-AUTH-004, D6). The gateway does not validate tokens and adds no `X-User-*` headers (ADR-028), so it only strips them.
 - Expose `Retry-After` in `Access-Control-Expose-Headers`, so a browser from an allowed origin can read the `Retry-After` of a 429 (HU-AUTH-004, D7).
 - Answer with exactly one `X-Correlation-Id`: the one a service sets is hidden and the gateway's own is sent (HU-AUTH-004, D9).
 
