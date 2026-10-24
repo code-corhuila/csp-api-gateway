@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [3.0.0] - 2026-10-15
 
 ### Fixed
+- Route the exact path `/api/v1/auth/me` (`GET` and `PATCH`, own profile) to `csp-auth-api` with the treatment of the other protected auth routes; it answered the gateway's 404 because only `me/.+` was matched (HU-AUTH-007, #21).
 - Strip the client-supplied `X-User-Id` and `X-User-Roles` request headers before proxying, on every route (HU-AUTH-004, D6). The gateway does not validate tokens and adds no `X-User-*` headers (ADR-028), so it only strips them.
 - Expose `Retry-After` in `Access-Control-Expose-Headers`, so a browser from an allowed origin can read the `Retry-After` of a 429 (HU-AUTH-004, D7).
 - Answer with exactly one `X-Correlation-Id`: the one a service sets is hidden and the gateway's own is sent (HU-AUTH-004, D9).
