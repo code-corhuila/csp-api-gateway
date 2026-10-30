@@ -7,6 +7,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [3.0.0] - 2026-10-15
 
+### Changed
+- The preflight answer (`OPTIONS` -> 204) moves to its own snippet, `snippets/preflight.conf`, included by `route-common.conf` and by the credential locations; the other routes behave as before. `login`, `register` and `forgot-password` leave the public auth location and no longer use the `per_client` zone (code-corhuila/csp-docs#281, #24).
+
 ### Fixed
 - Route the exact path `/api/v1/auth/me` (`GET` and `PATCH`, own profile) to `csp-auth-api` with the treatment of the other protected auth routes; it answered the gateway's 404 because only `me/.+` was matched (HU-AUTH-007, #21).
 - Strip the client-supplied `X-User-Id` and `X-User-Roles` request headers before proxying, on every route (HU-AUTH-004, D6). The gateway does not validate tokens and adds no `X-User-*` headers (ADR-028), so it only strips them.
@@ -15,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Reflect the client `X-Correlation-Id` (response header, `traceId` of the gateway errors, service request, access log) only when it matches `^[A-Za-z0-9._-]{1,64}$`; otherwise the gateway generates one. A quote or backslash no longer injects fields or breaks the JSON of the errors the gateway writes (HU-AUTH-004, D8).
 
 ### Added
+- Stricter rate limit for the credential routes, per client IP (code-corhuila/csp-docs#281, #24, ADR-060): `POST /api/v1/auth/login` and `POST /api/v1/auth/register` share the zone `auth_credentials` (2 r/s, burst 3) and `/api/v1/auth/forgot-password` has the zone `auth_forgot` (1 r/s, burst 2), so a flood cannot exhaust the bcrypt work of `csp-auth-api` (STRIDE D). Over the limit the answer is the gateway's `429 TOO_MANY_REQUESTS` with `Retry-After: 1`. Every other route keeps `per_client`. Burst checks in `tests/smoke.sh`.
 - Integration checks against real gateway containers and an upstream stub (`tests/integration.sh`), run by `ci.yml`.
 - Route `/api/v1/booking/` to `csp-booking-api` (HU-CATALOG-005, `booking-service.yaml` 3.3.0): the health routes are public; `POST /holds`, `GET /reservations`, `GET /reservations/{id}`, `POST /reservations/{id}/confirm` and `GET /showtimes/{showtimeId}/seats` require the presence of `Authorization` and only their own method is routed; `/internal/*` (maintenance and workflow) is never exposed and any other path is the gateway's 404. New variable `APP_GATEWAY_BOOKING_UPSTREAM` (default `http://booking-api:8083`).
 - Route `/api/v1/catalog/` to `csp-catalog-api` (HU-FE-CATALOG-002): the two public reads of the contract,
