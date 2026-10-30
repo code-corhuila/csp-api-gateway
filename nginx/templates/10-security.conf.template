@@ -1,8 +1,12 @@
 # Rendered by envsubst at container start (nginx image: /etc/nginx/templates -> conf.d).
 # Only the variables defined in the environment are substituted; nginx variables stay.
 
-# Rate limiting: stateless, per client IP (10 requests/second, bursts of 20 per route).
+# Rate limiting: stateless, per client IP. per_client (10 requests/second, bursts of 20 per route) covers
+# every route but the credential ones: auth_credentials (login and register share one bucket) and
+# auth_forgot (forgot-password) are stricter, they bound the bcrypt work a flood can force (HU-AUTH-002).
 limit_req_zone $binary_remote_addr zone=per_client:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=auth_credentials:10m rate=2r/s;
+limit_req_zone $binary_remote_addr zone=auth_forgot:10m rate=1r/s;
 limit_req_status 429;
 
 # CORS: only the front-end origins, matched by an ANCHORED regex so a lookalike

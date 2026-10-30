@@ -112,7 +112,66 @@ contains "the booking portal origin is allowed"                'Access-Control-A
 absent   "an unknown origin gets no grant on the seat map"     'Access-Control-Allow-Origin' -H 'Origin: http://evil.example' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
 contains "an error of a booking route keeps the correlation id" 'X-Correlation-Id: smoke-4' -X POST -H 'X-Correlation-Id: smoke-4' "$BASE$BOOKING/holds"
 
-# Rate limit: a burst of 60 simultaneous requests from one client exceeds the burst of 20.
+# Rate limit of the credential routes: login and register share one bucket per client (2 r/s, burst 3),
+# forgot-password has its own (1 r/s, burst 2), and no other route is affected. The buckets are
+# per client IP, so each step pauses until the previous burst has drained.
+flood() {  # method, urls... : every response, headers included
+  method="$1"; shift
+  curl -s -i --parallel --parallel-max 20 -X "$method" "$@"
+}
+
+repeat() {  # count, url : the url repeated count times
+  for i in $(seq 1 "$1"); do printf '%s ' "$2"; done
+}
+
+limited() {  # responses on stdin : how many are 429
+  grep -c '^HTTP/[0-9.]* 429'
+}
+
+expect_limited() {  # description, responses
+  n=$(printf '%s\n' "$2" | limited)
+  if [ "$n" -gt 0 ]; then echo "  ok    $1 ($n x 429)"; else echo "  FAIL  $1: no 429"; fail=1; fi
+}
+
+expect_not_limited() {  # description, responses
+  n=$(printf '%s\n' "$2" | limited)
+  if [ "$n" -eq 0 ]; then echo "  ok    $1"; else echo "  FAIL  $1: $n x 429"; fail=1; fi
+}
+
+sleep 3
+# shellcheck disable=SC2046
+login_flood=$(flood POST $(repeat 10 "$BASE$AUTH/login"))
+expect_limited "a burst of logins is rate limited" "$login_flood"
+if printf '%s\n' "$login_flood" | grep -qi '^Retry-After: 1'; then echo "  ok    the 429 of login carries Retry-After"; else echo "  FAIL  the 429 of login carries Retry-After: missing"; fail=1; fi
+check    "preflight of login is answered while the bucket is exhausted" 204 -X OPTIONS -H 'Origin: http://localhost:4201' -H 'Access-Control-Request-Method: POST' "$BASE$AUTH/login"
+contains "preflight of login keeps the CORS headers while the bucket is exhausted" 'Access-Control-Allow-Origin: http://localhost:4201' -X OPTIONS -H 'Origin: http://localhost:4201' "$BASE$AUTH/login"
+# shellcheck disable=SC2046
+expect_not_limited "another route keeps its own limit while login is exhausted" "$(flood GET $(repeat 8 "$BASE$AUTH/jwks"))"
+sleep 3
+check    "a login after a pause is not rate limited"        503 -X POST "$BASE$AUTH/login"
+
+sleep 3
+# shellcheck disable=SC2046
+expect_limited "login and register share one bucket" "$(flood POST $(repeat 4 "$BASE$AUTH/login") $(repeat 4 "$BASE$AUTH/register"))"
+
+sleep 3
+# shellcheck disable=SC2046
+expect_limited "a burst of registrations is rate limited" "$(flood POST $(repeat 10 "$BASE$AUTH/register"))"
+sleep 3
+check    "a registration after a pause is not rate limited" 503 -X POST "$BASE$AUTH/register"
+
+sleep 3
+# shellcheck disable=SC2046
+flood POST $(repeat 10 "$BASE$AUTH/login") >/dev/null
+check    "forgot-password has a bucket of its own while login is exhausted" 503 -X POST "$BASE$AUTH/forgot-password"
+sleep 3
+# shellcheck disable=SC2046
+forgot_flood=$(flood POST $(repeat 10 "$BASE$AUTH/forgot-password"))
+expect_limited "a burst of forgot-password is rate limited" "$forgot_flood"
+if printf '%s\n' "$forgot_flood" | grep -qi '^Retry-After: 1'; then echo "  ok    the 429 of forgot-password carries Retry-After"; else echo "  FAIL  the 429 of forgot-password carries Retry-After: missing"; fail=1; fi
+
+sleep 3
+# Rate limit of every other route: a burst of 60 simultaneous requests from one client exceeds the burst of 20.
 burst=$(for i in $(seq 1 60); do printf '%s?n=%s ' "$BASE$AUTH/jwks" "$i"; done)
 # shellcheck disable=SC2086
 limited=$(curl -s --parallel --parallel-max 60 -w '\n%{http_code}\n' $burst | grep -c '^429$')
