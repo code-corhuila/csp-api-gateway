@@ -53,6 +53,7 @@ See `.env.example`.
 | `/api/v1/auth/{logout,users,me,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
 | `/api/v1/auth/internal/*` | `csp-auth-api` | never exposed (404): `csp-worker` calls the service directly |
 | `/api/v1/catalog/{billboard,billboard/movies}` (GET only) | `csp-catalog-api` | public |
+| `/api/v1/catalog/{movies,rooms,showtimes}` (GET, POST) and `/api/v1/catalog/{movies,rooms,showtimes}/{id}` (GET, PATCH, DELETE) | `csp-catalog-api` | header required (401 without it) |
 | `/api/v1/booking/{health,health/ready}` | `csp-booking-api` | public |
 | `POST /api/v1/booking/holds`, `GET /api/v1/booking/reservations`, `GET /api/v1/booking/reservations/{id}`, `POST /api/v1/booking/reservations/{id}/confirm`, `GET /api/v1/booking/showtimes/{showtimeId}/seats` | `csp-booking-api` | header required (401 without it); another method is 404 |
 | `/api/v1/booking/internal/*` | `csp-booking-api` | never exposed (404): `csp-worker` and `csp-workflow` call the service directly |
