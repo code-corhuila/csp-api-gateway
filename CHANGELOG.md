@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Route `POST /api/v1/auth/register/confirm` to `csp-auth-api` (code-corhuila/csp-docs#282, ADR-062, `auth-service.yaml` 1.17.0): the second step of the registration, which creates the account when the owner of the mailbox opens the link. Without it the gateway answered its own 404 and no registration could be confirmed. It is public, as `register`, and shares the bucket `auth_credentials` with `login` and `register` (ADR-060); smoke checks for the public pass and for the shared bucket.
+
 ### Changed
 - The preflight answer (`OPTIONS` -> 204) moves to its own snippet, `snippets/preflight.conf`, included by `route-common.conf` and by the credential locations; the other routes behave as before. `login`, `register` and `forgot-password` leave the public auth location and no longer use the `per_client` zone (code-corhuila/csp-docs#281, #24).
 
