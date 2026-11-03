@@ -36,6 +36,7 @@ absent   "a lookalike origin (host suffix) is rejected"   'Access-Control-Allow-
 
 AUTH=/api/v1/auth
 check    "public register passes without Authorization"    503 -X POST "$BASE$AUTH/register"
+check    "public register/confirm passes without Authorization" 503 -X POST "$BASE$AUTH/register/confirm"
 check    "public login passes without Authorization"       503 -X POST "$BASE$AUTH/login"
 check    "public refresh passes without Authorization"     503 -X POST "$BASE$AUTH/refresh"
 check    "public forgot-password passes without Authorization" 503 -X POST "$BASE$AUTH/forgot-password"
@@ -157,6 +158,9 @@ expect_limited "login and register share one bucket" "$(flood POST $(repeat 4 "$
 sleep 3
 # shellcheck disable=SC2046
 expect_limited "a burst of registrations is rate limited" "$(flood POST $(repeat 10 "$BASE$AUTH/register"))"
+sleep 3
+# shellcheck disable=SC2046
+expect_limited "register and its confirmation share one bucket" "$(flood POST $(repeat 4 "$BASE$AUTH/register") $(repeat 4 "$BASE$AUTH/register/confirm"))"
 sleep 3
 check    "a registration after a pause is not rate limited" 503 -X POST "$BASE$AUTH/register"
 

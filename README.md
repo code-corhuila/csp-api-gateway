@@ -49,7 +49,7 @@ See `.env.example`.
 | Path | Service | Authorization at the gateway |
 |---|---|---|
 | `/health` | the gateway itself | public |
-| `/api/v1/auth/{register,login,refresh,forgot-password,reset-password,jwks,health,health/ready}` (login, register and forgot-password have a stricter rate limit, see below) | `csp-auth-api` | public |
+| `/api/v1/auth/{register,register/confirm,login,refresh,forgot-password,reset-password,jwks,health,health/ready}` (login, register, register/confirm and forgot-password have a stricter rate limit, see below) | `csp-auth-api` | public |
 | `/api/v1/auth/{logout,users,me,me/*,users/{userId}/role}` | `csp-auth-api` | header required (401 without it) |
 | `/api/v1/auth/internal/*` | `csp-auth-api` | never exposed (404): `csp-worker` calls the service directly |
 | `/api/v1/catalog/{billboard,billboard/movies}` (GET only) | `csp-catalog-api` | public |
@@ -67,11 +67,11 @@ Over the limit the gateway answers `429 TOO_MANY_REQUESTS` with `Retry-After: 1`
 
 | Zone | Rate | Burst | Routes |
 |---|---|---|---|
-| `per_client` | 10 r/s | 20 | every route except the three below (`snippets/route-common.conf`) |
-| `auth_credentials` | 2 r/s | 3 | `POST /api/v1/auth/login` and `POST /api/v1/auth/register`: one bucket shared per IP |
+| `per_client` | 10 r/s | 20 | every route except the credential routes below (`snippets/route-common.conf`) |
+| `auth_credentials` | 2 r/s | 3 | `POST /api/v1/auth/login`, `POST /api/v1/auth/register` and `POST /api/v1/auth/register/confirm`: one bucket shared per IP |
 | `auth_forgot` | 1 r/s | 2 | `/api/v1/auth/forgot-password` |
 
-The three auth routes use only their own zone (`routes/auth.conf`). The CORS preflight (`OPTIONS`) is
+The credential routes use only their own zone (`routes/auth.conf`). The CORS preflight (`OPTIONS`) is
 answered with 204 before any limit (`snippets/preflight.conf`). To tune, change the `rate` of the zone in the
 template and the `burst` in the `limit_req` of the route, and extend the burst checks of `tests/smoke.sh`.
 
