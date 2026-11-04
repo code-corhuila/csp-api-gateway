@@ -10,3 +10,6 @@ map "" $catalog_upstream {
 map "" $booking_upstream {
     default "${APP_GATEWAY_BOOKING_UPSTREAM}";
 }
+map "" $concessions_upstream {
+    default "${APP_GATEWAY_CONCESSIONS_UPSTREAM}";
+}
