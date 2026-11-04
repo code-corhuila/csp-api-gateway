@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [3.0.0] - 2026-10-15
 
 ### Added
+- Route `/api/v1/concessions/` to `csp-concessions-api` (HU-CONCESSIONS-006, `concessions-service.yaml` 2.4.0): the health routes are public; products, combos and orders accept GET and POST, `PATCH` changes the status of a product or a combo, and the order, cancellation and stock operations take the method the contract declares, all with `Authorization` required (401 without it). `/internal/*` (the operations of `csp-worker`) and any other path or method answer the gateway's 404. New variable `APP_GATEWAY_CONCESSIONS_UPSTREAM` (default `http://concessions-api:8085`).
 - Route `POST /api/v1/auth/register/confirm` to `csp-auth-api` (code-corhuila/csp-docs#282, ADR-062, `auth-service.yaml` 1.17.0): the second step of the registration, which creates the account when the owner of the mailbox opens the link. Without it the gateway answered its own 404 and no registration could be confirmed. It is public, as `register`, and shares the bucket `auth_credentials` with `login` and `register` (ADR-060); smoke checks for the public pass and for the shared bucket.
 
 ### Changed
