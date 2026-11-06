@@ -113,6 +113,21 @@ contains "the booking portal origin is allowed"                'Access-Control-A
 absent   "an unknown origin gets no grant on the seat map"     'Access-Control-Allow-Origin' -H 'Origin: http://evil.example' "$BASE$BOOKING/showtimes/$SHOWTIME/seats"
 contains "an error of a booking route keeps the correlation id" 'X-Correlation-Id: smoke-4' -X POST -H 'X-Correlation-Id: smoke-4' "$BASE$BOOKING/holds"
 
+SAGAS=/api/v1/sagas
+SAGA=35920dc9-bd55-41a0-8e41-5832377383e5
+check    "the start of a saga without Authorization is 401"    401 -X POST "$BASE$SAGAS/book-seats"
+check    "the start of a saga with Authorization reaches the service" 503 -X POST -H 'Authorization: Bearer x' "$BASE$SAGAS/book-seats"
+check    "only POST is routed on the start of a saga"          404 -H 'Authorization: Bearer x' "$BASE$SAGAS/book-seats"
+check    "a saga without Authorization is 401"                 401 "$BASE$SAGAS/$SAGA"
+check    "a saga with Authorization reaches the service"       503 -H 'Authorization: Bearer x' "$BASE$SAGAS/$SAGA"
+check    "only GET is routed on a saga"                        404 -X DELETE -H 'Authorization: Bearer x' "$BASE$SAGAS/$SAGA"
+check    "the collection of sagas is 404"                      404 -H 'Authorization: Bearer x' "$BASE$SAGAS"
+check    "the liveness probe of the workflow is not exposed"   404 -H 'Authorization: Bearer x' "$BASE/api/v1/health"
+contains "a 401 of the sagas uses the error envelope"          '"error":"UNAUTHORIZED"' -X POST "$BASE$SAGAS/book-seats"
+check    "preflight of the start of a saga is answered"        204 -X OPTIONS -H 'Origin: http://localhost:4202' -H 'Access-Control-Request-Method: POST' "$BASE$SAGAS/book-seats"
+contains "preflight allows the Idempotency-Key of a saga"      'Access-Control-Allow-Headers: .*Idempotency-Key' -X OPTIONS -H 'Origin: http://localhost:4202' "$BASE$SAGAS/book-seats"
+contains "an error of a sagas route keeps the correlation id"  'X-Correlation-Id: smoke-5' -X POST -H 'X-Correlation-Id: smoke-5' "$BASE$SAGAS/book-seats"
+
 # Rate limit of the credential routes: login and register share one bucket per client (2 r/s, burst 3),
 # forgot-password has its own (1 r/s, burst 2), and no other route is affected. The buckets are
 # per client IP, so each step pauses until the previous burst has drained.
