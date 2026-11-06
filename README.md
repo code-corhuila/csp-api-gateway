@@ -28,7 +28,7 @@ nginx/nginx.conf               global settings, JSON access log with correlation
 nginx/conf.d/                  per-request DNS resolver, server with the gateway's own errors
 nginx/templates/               settings rendered by envsubst at start (rate limit, CORS, service upstreams)
 nginx/snippets/                headers every response carries, preflight, rate limit, credential filter
-nginx/routes/                  one file per domain (auth.conf, booking.conf, catalog.conf, concessions.conf), plus _health.conf
+nginx/routes/                  one file per domain (auth.conf, booking.conf, catalog.conf, concessions.conf, workflow.conf), plus _health.conf
 tests/smoke.sh                 checks the gateway must pass
 deploy/                        Dockerfile and compose.yml
 ```
@@ -42,6 +42,7 @@ deploy/                        Dockerfile and compose.yml
 | `APP_GATEWAY_CONCESSIONS_UPSTREAM` | Base URL of `csp-concessions-api` (scheme, host, port; no path). Default: `http://concessions-api:8085`. |
 | `APP_GATEWAY_CATALOG_UPSTREAM` | Base URL of `csp-catalog-api` (scheme, host, port; no path). Default: `http://catalog-api:8082`. |
 | `APP_GATEWAY_BOOKING_UPSTREAM` | Base URL of `csp-booking-api` (scheme, host, port; no path). Default: `http://booking-api:8083`. |
+| `APP_GATEWAY_WORKFLOW_UPSTREAM` | Base URL of `csp-workflow` (scheme, host, port; no path). Default: `http://workflow:8086`. |
 
 See `.env.example`.
 
@@ -61,6 +62,8 @@ See `.env.example`.
 | `/api/v1/concessions/{health,health/ready}` | `csp-concessions-api` | public |
 | `/api/v1/concessions/{products,combos,orders}` (GET, POST), `PATCH /api/v1/concessions/{products,combos}/{id}`, `GET /api/v1/concessions/orders/{id}`, `POST /api/v1/concessions/orders/{id}/cancel`, `POST /api/v1/concessions/stock/adjust` and `GET /api/v1/concessions/stock/movements` | `csp-concessions-api` | header required (401 without it) |
 | `/api/v1/concessions/internal/*` | `csp-concessions-api` | never exposed (404): `csp-worker` calls the service directly |
+| `POST /api/v1/sagas/book-seats`, `GET /api/v1/sagas/{id}` | `csp-workflow` | header required (401 without it); another method is 404 |
+| `/api/v1/health` of the workflow | `csp-workflow` | never exposed (404) |
 
 Anything else answers 404. The gateway only checks that `Authorization` is present; each service
 validates the token.
