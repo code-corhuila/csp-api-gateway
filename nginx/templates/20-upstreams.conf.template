@@ -16,3 +16,6 @@ map "" $concessions_upstream {
 map "" $workflow_upstream {
     default "${APP_GATEWAY_WORKFLOW_UPSTREAM}";
 }
+map "" $ticketing_upstream {
+    default "${APP_GATEWAY_TICKETING_UPSTREAM}";
+}
