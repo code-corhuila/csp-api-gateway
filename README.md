@@ -27,6 +27,7 @@ validate tokens (each service does, norm 5.6.2), keeps no state and has no busin
 nginx/nginx.conf               global settings, JSON access log with correlationId
 nginx/conf.d/                  per-request DNS resolver, server with the gateway's own errors
 nginx/templates/               settings rendered by envsubst at start (rate limit, CORS, service upstreams)
+nginx/entrypoint/              start-time check: https:// Catalog upstream and CA file (fail closed)
 nginx/snippets/                headers every response carries, preflight, rate limit, credential filter
 nginx/routes/                  one file per domain (auth.conf, booking.conf, catalog.conf, concessions.conf, workflow.conf), plus _health.conf
 tests/smoke.sh                 checks the gateway must pass
@@ -40,11 +41,26 @@ deploy/                        Dockerfile and compose.yml
 | `APP_GATEWAY_CORS_ORIGIN_REGEX` | Allowed browser origins, anchored by the gateway (`^...$`). Default: shell `4200` and remotes `4201`-`4205`. |
 | `APP_GATEWAY_AUTH_UPSTREAM` | Base URL of `csp-auth-api` (scheme, host, port; no path). Default: `http://auth-api:8081`. |
 | `APP_GATEWAY_CONCESSIONS_UPSTREAM` | Base URL of `csp-concessions-api` (scheme, host, port; no path). Default: `http://concessions-api:8085`. |
-| `APP_GATEWAY_CATALOG_UPSTREAM` | Base URL of `csp-catalog-api` (scheme, host, port; no path). Default: `http://catalog-api:8082`. |
+| `APP_GATEWAY_CATALOG_UPSTREAM` | Base URL of `csp-catalog-api` (scheme, host, port; no path). Must be `https://` (default: `https://catalog-api:8082`); the gateway does not start otherwise. |
+| `CATALOG_TLS_CA_FILE` | CA certificate (public) that verifies Catalog. Always `/run/tls/ca.crt` in the container; the compose file mounts it read-only from the host file `CATALOG_TLS_CA_HOST_FILE` (defined by the platform repository `csp-infra-postgres`; compose refuses to start without it). |
 | `APP_GATEWAY_BOOKING_UPSTREAM` | Base URL of `csp-booking-api` (scheme, host, port; no path). Default: `http://booking-api:8083`. |
 | `APP_GATEWAY_WORKFLOW_UPSTREAM` | Base URL of `csp-workflow` (scheme, host, port; no path). Default: `http://workflow:8086`. |
 
 See `.env.example`.
+
+## TLS to Catalog (ADR-067)
+
+Catalog serves HTTPS only, with a certificate issued by the internal CA of the environment (dev, qa, main).
+The gateway calls it with `proxy_pass` over `https://` and verifies the certificate
+(`nginx/templates/30-catalog-tls.conf.template`): `proxy_ssl_verify on`, only the CA file
+`CATALOG_TLS_CA_FILE` is trusted (`proxy_ssl_trusted_certificate`), the name checked is `catalog-api`
+(`proxy_ssl_name`, also sent as SNI), depth 2, TLS 1.2 or 1.3. The host in the URL does not change the name checked.
+
+Fail closed: the script `nginx/entrypoint/05-require-catalog-tls.sh` runs from the image entrypoint before the
+configuration is rendered. If `APP_GATEWAY_CATALOG_UPSTREAM` is not an `https://` URL, or the CA file is missing
+or empty, it exits with an error and the container does not start. The check is at start, not per request: a
+certificate that stops verifying later makes the Catalog routes answer 503. The CA private key is never here;
+only the public certificate is mounted.
 
 ## Routes
 
@@ -98,10 +114,15 @@ template and the `burst` in the `limit_req` of the route, and extend the burst c
 
 ```bash
 docker build -f deploy/Dockerfile -t gateway .
-docker run --rm gateway nginx -t
-docker run -d --name gateway -p 8000:8000 gateway
+sh tests/support/make-ca.sh /tmp/gateway-tls        # throwaway CA for local runs
+docker create --name gateway -p 8000:8000 gateway
+docker cp /tmp/gateway-tls/ca.crt gateway:/run/tls/ca.crt
+docker start gateway
 sh tests/smoke.sh http://localhost:8000
+sh tests/integration.sh                             # builds its own containers and CAs
 ```
+
+With the platform, `CATALOG_TLS_CA_HOST_FILE=<ca.crt of the environment> docker compose -f deploy/compose.yml up -d`.
 
 ## Branching
 
