@@ -8,10 +8,15 @@ services:
     environment:
       APP_GATEWAY_CORS_ORIGIN_REGEX: ${APP_GATEWAY_CORS_ORIGIN_REGEX:-http://localhost:(4200|4201|4202|4203|4204|4205)}
       APP_GATEWAY_AUTH_UPSTREAM: ${APP_GATEWAY_AUTH_UPSTREAM:-http://auth-api:8081}
-      APP_GATEWAY_CATALOG_UPSTREAM: ${APP_GATEWAY_CATALOG_UPSTREAM:-http://catalog-api:8082}
+      APP_GATEWAY_CATALOG_UPSTREAM: ${APP_GATEWAY_CATALOG_UPSTREAM:-https://catalog-api:8082}
+      CATALOG_TLS_CA_FILE: /run/tls/ca.crt
       APP_GATEWAY_BOOKING_UPSTREAM: ${APP_GATEWAY_BOOKING_UPSTREAM:-http://booking-api:8083}
       APP_GATEWAY_CONCESSIONS_UPSTREAM: ${APP_GATEWAY_CONCESSIONS_UPSTREAM:-http://concessions-api:8085}
       APP_GATEWAY_WORKFLOW_UPSTREAM: ${APP_GATEWAY_WORKFLOW_UPSTREAM:-http://workflow:8086}
+    # The CA certificate (public) of the environment that verifies Catalog (ADR-067). CATALOG_TLS_CA_HOST_FILE is
+    # defined by the platform repository (csp-infra-postgres); without it compose refuses to start the gateway.
+    volumes:
+      - ${CATALOG_TLS_CA_HOST_FILE:?set CATALOG_TLS_CA_HOST_FILE to the CA certificate of the environment}:/run/tls/ca.crt:ro
     # The only service that publishes a port to the host.
     ports: ["8000:8000"]
     networks: [platform]

@@ -10,44 +10,79 @@ PORT="${IT_PORT:-18000}"
 NET="${PREFIX}net"
 BASE="http://localhost:$PORT"
 BASE_ECHO="http://localhost:$((PORT + 1))"
+BASE_BADNAME="http://localhost:$((PORT + 2))"
+BASE_BADCA="http://localhost:$((PORT + 3))"
 WORK=""
 passed=0
 failed=0
 
 cleanup() {
-  docker rm -f "${PREFIX}gateway" "${PREFIX}gateway-echo" "${PREFIX}stub" "${PREFIX}hang" >/dev/null 2>&1
+  docker rm -f "${PREFIX}gateway" "${PREFIX}gateway-echo" "${PREFIX}gateway-badname" "${PREFIX}gateway-badca" \
+  "${PREFIX}stub" "${PREFIX}stub-tls" "${PREFIX}hang" "${PREFIX}tmp" >/dev/null 2>&1
   docker network rm "$NET" >/dev/null 2>&1
   [ -n "$WORK" ] && rm -rf "$WORK"
 }
-trap cleanup EXIT
+trap "[ -n \"${KEEP:-}\" ] || cleanup" EXIT
 cleanup
 WORK=$(mktemp -d)
 
 docker build -q -f deploy/Dockerfile -t "${PREFIX}gateway" . >/dev/null || exit 1
 docker build -q -f tests/stub/Dockerfile -t "${PREFIX}stub" tests/stub >/dev/null || exit 1
 docker network create "$NET" >/dev/null || exit 1
+
+# Throwaway CAs and certificates for the HTTPS hop to the Catalog (ADR-067). Files are copied into the
+# containers (docker cp), not bind-mounted, so the checks do not depend on the host's path conventions.
+sh tests/support/make-ca.sh "$WORK/tls" || exit 1
+# start_with_files NAME FILE:DEST[,FILE:DEST...] docker-run-args... : creates the container, copies the
+# files (from $WORK/tls) to their absolute destinations, starts it.
+start_with_files() {
+  name="$1"; files="$2"; shift 2
+  docker create --name "$name" "$@" >/dev/null || return 1
+  for pair in $(printf '%s' "$files" | tr ',' ' '); do
+    dest="${pair#*:}"
+    mkdir -p "$WORK/stage/$name$(dirname "$dest")"
+    cp "$WORK/tls/${pair%%:*}" "$WORK/stage/$name$dest"
+  done
+  # (Git Bash would rewrite "name:/" as a path; the arguments are relative to the staged tree.)
+  (cd "$WORK/stage/$name" && MSYS2_ARG_CONV_EXCL="*" docker cp ./. "$name:/") || return 1
+  docker start "$name" >/dev/null
+}
+CA_FILES="ca.crt:/run/tls/ca.crt"
+cp tests/stub/echo-tls.conf "$WORK/tls/echo-tls.conf"
+start_with_files "${PREFIX}stub-tls" \
+  "server.crt:/run/tls/server.crt,server.key:/run/tls/server.key,wrong-name.crt:/run/tls/wrong-name.crt,wrong-name.key:/run/tls/wrong-name.key,untrusted.crt:/run/tls/untrusted.crt,untrusted.key:/run/tls/untrusted.key,echo-tls.conf:/etc/nginx/nginx.conf" \
+  --network "$NET" "${PREFIX}stub" || exit 1
 docker run -d --name "${PREFIX}stub" --network "$NET" "${PREFIX}stub" >/dev/null || exit 1
 # An upstream that accepts the connection and never answers: the gateway times out (504).
 docker run -d --name "${PREFIX}hang" --network "$NET" --entrypoint sh "${PREFIX}stub" \
   -c 'while true; do nc -l -p 80 >/dev/null 2>&1; done' >/dev/null || exit 1
-# Gateway 1: auth -> stub (200), catalog -> stub port 81 (502), booking -> hang (504).
-docker run -d --name "${PREFIX}gateway" --network "$NET" -p "$PORT:8000" \
+# Gateway 1: auth -> stub (200), catalog -> stub-tls port 8083 (503), booking -> hang (504).
+start_with_files "${PREFIX}gateway" "$CA_FILES" --network "$NET" -p "$PORT:8000" \
   -e "APP_GATEWAY_AUTH_UPSTREAM=http://${PREFIX}stub:80" \
-  -e "APP_GATEWAY_CATALOG_UPSTREAM=http://${PREFIX}stub:81" \
+  -e "APP_GATEWAY_CATALOG_UPSTREAM=https://${PREFIX}stub-tls:8083" \
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}hang:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
-  "${PREFIX}gateway" >/dev/null || exit 1
-# Gateway 2: every domain -> stub (200), to observe what reaches the upstream on each route.
-docker run -d --name "${PREFIX}gateway-echo" --network "$NET" -p "$((PORT + 1)):8000" \
+  "${PREFIX}gateway" || exit 1
+# Gateway 2: every domain -> stub (200), to observe what reaches the upstream on each route; the catalog
+# goes over verified TLS to stub-tls port 8082.
+start_with_files "${PREFIX}gateway-echo" "$CA_FILES" --network "$NET" -p "$((PORT + 1)):8000" \
   -e "APP_GATEWAY_AUTH_UPSTREAM=http://${PREFIX}stub:80" \
-  -e "APP_GATEWAY_CATALOG_UPSTREAM=http://${PREFIX}stub:80" \
+  -e "APP_GATEWAY_CATALOG_UPSTREAM=https://${PREFIX}stub-tls:8082" \
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
-  "${PREFIX}gateway" >/dev/null || exit 1
+  "${PREFIX}gateway" || exit 1
+# Gateway 3: trusts the right CA but Catalog presents a certificate for another name (stub-tls 8084).
+start_with_files "${PREFIX}gateway-badname" "$CA_FILES" --network "$NET" -p "$((PORT + 2)):8000" \
+  -e "APP_GATEWAY_CATALOG_UPSTREAM=https://${PREFIX}stub-tls:8084" \
+  "${PREFIX}gateway" || exit 1
+# Gateway 4: Catalog presents a certificate of an unrelated CA (stub-tls 8085), which this gateway does not trust.
+start_with_files "${PREFIX}gateway-badca" "$CA_FILES" --network "$NET" -p "$((PORT + 3)):8000" \
+  -e "APP_GATEWAY_CATALOG_UPSTREAM=https://${PREFIX}stub-tls:8085" \
+  "${PREFIX}gateway" || exit 1
 
-for url in "$BASE" "$BASE_ECHO"; do
+for url in "$BASE" "$BASE_ECHO" "$BASE_BADNAME" "$BASE_BADCA"; do
   tries=0
   until curl -s -o /dev/null "$url/health"; do
     tries=$((tries + 1))
