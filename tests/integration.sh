@@ -63,6 +63,7 @@ start_with_files "${PREFIX}gateway" "$CA_FILES" --network "$NET" -p "$PORT:8000"
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}hang:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
+  -e "APP_GATEWAY_TICKETING_UPSTREAM=http://${PREFIX}stub:80" \
   "${PREFIX}gateway" || exit 1
 # Gateway 2: every domain -> stub (200), to observe what reaches the upstream on each route; the catalog
 # goes over verified TLS to stub-tls port 8082.
@@ -72,6 +73,7 @@ start_with_files "${PREFIX}gateway-echo" "$CA_FILES" --network "$NET" -p "$((POR
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
+  -e "APP_GATEWAY_TICKETING_UPSTREAM=http://${PREFIX}stub:80" \
   "${PREFIX}gateway" || exit 1
 # Gateway 3: trusts the right CA but Catalog presents a certificate for another name (stub-tls 8084).
 start_with_files "${PREFIX}gateway-badname" "$CA_FILES" --network "$NET" -p "$((PORT + 2)):8000" \
