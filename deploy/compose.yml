@@ -11,6 +11,7 @@ services:
       APP_GATEWAY_CATALOG_UPSTREAM: ${APP_GATEWAY_CATALOG_UPSTREAM:-http://catalog-api:8082}
       APP_GATEWAY_BOOKING_UPSTREAM: ${APP_GATEWAY_BOOKING_UPSTREAM:-http://booking-api:8083}
       APP_GATEWAY_CONCESSIONS_UPSTREAM: ${APP_GATEWAY_CONCESSIONS_UPSTREAM:-http://concessions-api:8085}
+      APP_GATEWAY_WORKFLOW_UPSTREAM: ${APP_GATEWAY_WORKFLOW_UPSTREAM:-http://workflow:8086}
     # The only service that publishes a port to the host.
     ports: ["8000:8000"]
     networks: [platform]
