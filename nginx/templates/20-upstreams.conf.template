@@ -13,3 +13,6 @@ map "" $booking_upstream {
 map "" $concessions_upstream {
     default "${APP_GATEWAY_CONCESSIONS_UPSTREAM}";
 }
+map "" $workflow_upstream {
+    default "${APP_GATEWAY_WORKFLOW_UPSTREAM}";
+}
