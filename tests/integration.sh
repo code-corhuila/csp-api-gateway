@@ -36,6 +36,7 @@ docker run -d --name "${PREFIX}gateway" --network "$NET" -p "$PORT:8000" \
   -e "APP_GATEWAY_CATALOG_UPSTREAM=http://${PREFIX}stub:81" \
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}hang:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
+  -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
   "${PREFIX}gateway" >/dev/null || exit 1
 # Gateway 2: every domain -> stub (200), to observe what reaches the upstream on each route.
 docker run -d --name "${PREFIX}gateway-echo" --network "$NET" -p "$((PORT + 1)):8000" \
@@ -43,6 +44,7 @@ docker run -d --name "${PREFIX}gateway-echo" --network "$NET" -p "$((PORT + 1)):
   -e "APP_GATEWAY_CATALOG_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_BOOKING_UPSTREAM=http://${PREFIX}stub:80" \
   -e "APP_GATEWAY_CONCESSIONS_UPSTREAM=http://${PREFIX}stub:80" \
+  -e "APP_GATEWAY_WORKFLOW_UPSTREAM=http://${PREFIX}stub:80" \
   "${PREFIX}gateway" >/dev/null || exit 1
 
 for url in "$BASE" "$BASE_ECHO"; do
