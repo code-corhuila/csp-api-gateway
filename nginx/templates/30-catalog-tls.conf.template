@@ -1,0 +1,10 @@
+# TLS to csp-catalog-api (ADR-067, section 3). These directives only act on https:// upstreams, and the
+# gateway has one (Catalog). The CA is the internal CA of the environment, mounted at CATALOG_TLS_CA_FILE;
+# nothing else is trusted for this hop. The name checked is `catalog-api`, whatever host the URL holds.
+# The entrypoint script 05-require-catalog-tls.sh refuses to start without an https:// URL and the CA file.
+proxy_ssl_verify on;
+proxy_ssl_verify_depth 2;
+proxy_ssl_trusted_certificate ${CATALOG_TLS_CA_FILE};
+proxy_ssl_name catalog-api;
+proxy_ssl_server_name on;
+proxy_ssl_protocols TLSv1.2 TLSv1.3;

@@ -23,11 +23,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the image
         run: docker build -f deploy/Dockerfile -t gateway .
+      - name: Throwaway CA for the Catalog TLS hop
+        run: sh tests/support/make-ca.sh "$RUNNER_TEMP/tls"
       - name: The configuration is valid
-        run: docker run --rm gateway nginx -t
+        run: |
+          docker create --name config gateway nginx -t
+          docker cp "$RUNNER_TEMP/tls/ca.crt" config:/run/tls/ca.crt
+          docker start -a config
       - name: Smoke checks
         run: |
-          docker run -d --name gateway -p 8000:8000 gateway
+          docker create --name gateway -p 8000:8000 gateway
+          docker cp "$RUNNER_TEMP/tls/ca.crt" gateway:/run/tls/ca.crt
+          docker start gateway
           sleep 2
           sh tests/smoke.sh http://localhost:8000
       - name: Integration checks
