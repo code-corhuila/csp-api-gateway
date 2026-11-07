@@ -82,7 +82,7 @@ only the public certificate is mounted.
 | `POST /api/v1/sagas/book-seats`, `GET /api/v1/sagas/{id}` | `csp-workflow` | header required (401 without it); another method is 404 |
 | `/api/v1/health` of the workflow | `csp-workflow` | never exposed (404) |
 | `/api/v1/ticketing/{health,health/ready}` | `csp-ticketing-api` | public |
-| `GET /api/v1/ticketing/me/tickets`, `GET /api/v1/ticketing/me/tickets/{ticketId}/pdf` | `csp-ticketing-api` | header required (401 without it); another method is 404 |
+| `GET /api/v1/ticketing/me/tickets`, `GET /api/v1/ticketing/me/tickets/{ticketId}/pdf`, `GET /api/v1/ticketing/me/notifications` | `csp-ticketing-api` | header required (401 without it); another method is 404 |
 | `/api/v1/ticketing/internal/*` | `csp-ticketing-api` | never exposed (404): `csp-worker` calls the service directly |
 
 Anything else answers 404. The gateway only checks that `Authorization` is present; each service
