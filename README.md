@@ -29,7 +29,7 @@ nginx/conf.d/                  per-request DNS resolver, server with the gateway
 nginx/templates/               settings rendered by envsubst at start (rate limit, CORS, service upstreams)
 nginx/entrypoint/              start-time check: https:// Catalog upstream and CA file (fail closed)
 nginx/snippets/                headers every response carries, preflight, rate limit, credential filter
-nginx/routes/                  one file per domain (auth.conf, booking.conf, catalog.conf, concessions.conf, workflow.conf), plus _health.conf
+nginx/routes/                  one file per domain (auth.conf, booking.conf, catalog.conf, concessions.conf, ticketing.conf, workflow.conf), plus _health.conf
 tests/smoke.sh                 checks the gateway must pass
 deploy/                        Dockerfile and compose.yml
 ```
@@ -45,6 +45,7 @@ deploy/                        Dockerfile and compose.yml
 | `CATALOG_TLS_CA_FILE` | CA certificate (public) that verifies Catalog. Always `/run/tls/ca.crt` in the container; the compose file mounts it read-only from the host file `CATALOG_TLS_CA_HOST_FILE` (defined by the platform repository `csp-infra-postgres`; compose refuses to start without it). |
 | `APP_GATEWAY_BOOKING_UPSTREAM` | Base URL of `csp-booking-api` (scheme, host, port; no path). Default: `http://booking-api:8083`. |
 | `APP_GATEWAY_WORKFLOW_UPSTREAM` | Base URL of `csp-workflow` (scheme, host, port; no path). Default: `http://workflow:8086`. |
+| `APP_GATEWAY_TICKETING_UPSTREAM` | Base URL of `csp-ticketing-api` (scheme, host, port; no path). Default: `http://ticketing-api:8084`. |
 
 See `.env.example`.
 
@@ -80,6 +81,9 @@ only the public certificate is mounted.
 | `/api/v1/concessions/internal/*` | `csp-concessions-api` | never exposed (404): `csp-worker` calls the service directly |
 | `POST /api/v1/sagas/book-seats`, `GET /api/v1/sagas/{id}` | `csp-workflow` | header required (401 without it); another method is 404 |
 | `/api/v1/health` of the workflow | `csp-workflow` | never exposed (404) |
+| `/api/v1/ticketing/{health,health/ready}` | `csp-ticketing-api` | public |
+| `GET /api/v1/ticketing/me/tickets`, `GET /api/v1/ticketing/me/tickets/{ticketId}/pdf`, `GET /api/v1/ticketing/me/notifications` | `csp-ticketing-api` | header required (401 without it); another method is 404 |
+| `/api/v1/ticketing/internal/*` | `csp-ticketing-api` | never exposed (404): `csp-worker` calls the service directly |
 
 Anything else answers 404. The gateway only checks that `Authorization` is present; each service
 validates the token.

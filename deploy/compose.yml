@@ -13,6 +13,7 @@ services:
       APP_GATEWAY_BOOKING_UPSTREAM: ${APP_GATEWAY_BOOKING_UPSTREAM:-http://booking-api:8083}
       APP_GATEWAY_CONCESSIONS_UPSTREAM: ${APP_GATEWAY_CONCESSIONS_UPSTREAM:-http://concessions-api:8085}
       APP_GATEWAY_WORKFLOW_UPSTREAM: ${APP_GATEWAY_WORKFLOW_UPSTREAM:-http://workflow:8086}
+      APP_GATEWAY_TICKETING_UPSTREAM: ${APP_GATEWAY_TICKETING_UPSTREAM:-http://ticketing-api:8084}
     # The CA certificate (public) of the environment that verifies Catalog (ADR-067). CATALOG_TLS_CA_HOST_FILE is
     # defined by the platform repository (csp-infra-postgres); without it compose refuses to start the gateway.
     volumes:
