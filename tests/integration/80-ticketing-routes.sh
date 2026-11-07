@@ -15,6 +15,7 @@ route() {  # method, path: reaches the upstream with the header, and is 401 with
 
 route GET "/api/v1/ticketing/me/tickets"
 route GET "/api/v1/ticketing/me/tickets/$ID/pdf"
+route GET "/api/v1/ticketing/me/notifications"
 
 for path in health health/ready; do
   fetch -X GET "$BASE_ECHO/api/v1/ticketing/$path"
@@ -39,6 +40,10 @@ not_routed PUT "/api/v1/ticketing/me/tickets/$ID/pdf"
 not_routed GET "/api/v1/ticketing/me/tickets/$ID"
 not_routed GET "/api/v1/ticketing/me/tickets/$ID/pdf/extra"
 not_routed GET "/api/v1/ticketing/me/tickets/"
+not_routed POST "/api/v1/ticketing/me/notifications"
+not_routed DELETE "/api/v1/ticketing/me/notifications"
+not_routed GET "/api/v1/ticketing/me/notifications/"
+not_routed GET "/api/v1/ticketing/me/notifications/$ID"
 not_routed GET "/api/v1/ticketing/me"
 not_routed GET "/api/v1/ticketing"
 not_routed GET "/api/v1/ticketing/"

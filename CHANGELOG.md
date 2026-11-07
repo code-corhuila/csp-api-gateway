@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The preflight answer (`OPTIONS` -> 204) moves to its own snippet, `snippets/preflight.conf`, included by `route-common.conf` and by the credential locations; the other routes behave as before. `login`, `register` and `forgot-password` leave the public auth location and no longer use the `per_client` zone (code-corhuila/csp-docs#281, #24).
 
 ### Fixed
+- Route `GET /api/v1/ticketing/me/notifications` to `csp-ticketing-api` (HU-TICKETING-005, code-corhuila/csp-api-gateway#40): it is implemented by the service but answered the gateway's 404 because only `me/tickets` was routed. It is treated as the other ticketing routes: header required (401 without it) and any other method is 404.
 - Route the exact path `/api/v1/auth/me` (`GET` and `PATCH`, own profile) to `csp-auth-api` with the treatment of the other protected auth routes; it answered the gateway's 404 because only `me/.+` was matched (HU-AUTH-007, #21).
 - Strip the client-supplied `X-User-Id` and `X-User-Roles` request headers before proxying, on every route (HU-AUTH-004, D6). The gateway does not validate tokens and adds no `X-User-*` headers (ADR-028), so it only strips them.
 - Expose `Retry-After` in `Access-Control-Expose-Headers`, so a browser from an allowed origin can read the `Retry-After` of a 429 (HU-AUTH-004, D7).
