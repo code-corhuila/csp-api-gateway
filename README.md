@@ -74,7 +74,7 @@ only the public certificate is mounted.
 | `/api/v1/catalog/{billboard,billboard/movies}` (GET only) | `csp-catalog-api` | public |
 | `/api/v1/catalog/{movies,rooms,showtimes}` (GET, POST) and `/api/v1/catalog/{movies,rooms,showtimes}/{id}` (GET, PATCH, DELETE) | `csp-catalog-api` | header required (401 without it) |
 | `/api/v1/booking/{health,health/ready}` | `csp-booking-api` | public |
-| `POST /api/v1/booking/holds`, `GET /api/v1/booking/reservations`, `GET /api/v1/booking/reservations/{id}`, `POST /api/v1/booking/reservations/{id}/confirm`, `GET /api/v1/booking/showtimes/{showtimeId}/seats` | `csp-booking-api` | header required (401 without it); another method is 404 |
+| `POST /api/v1/booking/holds`, `GET /api/v1/booking/reservations`, `GET /api/v1/booking/admin/reservations` (administrators; the service enforces `booking:read:all`), `GET /api/v1/booking/reservations/{id}`, `POST /api/v1/booking/reservations/{id}/confirm`, `GET /api/v1/booking/showtimes/{showtimeId}/seats` | `csp-booking-api` | header required (401 without it); another method is 404 |
 | `/api/v1/booking/internal/*` | `csp-booking-api` | never exposed (404): `csp-worker` and `csp-workflow` call the service directly |
 | `/api/v1/concessions/{health,health/ready}` | `csp-concessions-api` | public |
 | `/api/v1/concessions/{products,combos,orders}` (GET, POST), `PATCH /api/v1/concessions/{products,combos}/{id}`, `GET /api/v1/concessions/orders/{id}`, `POST /api/v1/concessions/orders/{id}/cancel`, `POST /api/v1/concessions/stock/adjust` and `GET /api/v1/concessions/stock/movements` | `csp-concessions-api` | header required (401 without it) |
