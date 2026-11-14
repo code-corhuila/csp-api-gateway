@@ -1,0 +1,49 @@
+# Changelog
+
+All notable changes to this repository are recorded here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+## [3.0.0] - 2026-10-15
+
+### Added
+- Route `GET /api/v1/booking/admin/reservations` to `csp-booking-api` (HU-FE-BOOKING-001, `booking-service.yaml` 3.5.0, code-corhuila/csp-booking-api#67): the administrator list of every user's reservations answered the gateway's 404. It is treated as the other protected booking routes: header required (401 without it), any other method is 404; the permission `booking:read:all` is enforced by the service. Smoke and integration checks (`tests/integration/90-booking-admin-reservations.sh`).
+- Route `/api/v1/ticketing/` to `csp-ticketing-api` (HU-TICKETING-002, `ticketing-fulfillment-service.yaml` 1.3.0, code-corhuila/csp-infra-postgres#41): the health routes are public; `GET /me/tickets` and `GET /me/tickets/{ticketId}/pdf` are proxied with the header required (401 without it) and any other method is 404; `/internal/*` is never exposed. New variable `APP_GATEWAY_TICKETING_UPSTREAM` (default `http://ticketing-api:8084`). Before this the gateway answered 404 for every Ticketing route, so the portal could not reach the service.
+- Catalog upstream over HTTPS with verification (ADR-067, code-corhuila/csp-docs#289 criterion 2): `proxy_ssl_verify on` against the internal CA (`CATALOG_TLS_CA_FILE`, `/run/tls/ca.crt`), name `catalog-api`, SNI, depth 2, TLS 1.2/1.3. The gateway does not start (entrypoint `05-require-catalog-tls.sh`) when `APP_GATEWAY_CATALOG_UPSTREAM` is not `https://` or the CA file is missing; compose mounts the CA from `CATALOG_TLS_CA_HOST_FILE`. Integration checks with throwaway CAs: accepted certificate, wrong name, wrong CA, generated config, refusal to start.
+- Route `/api/v1/sagas` to `csp-workflow` (HU-CONCESSIONS-004, ADR-066, `workflow-service.yaml` 1.0.0, code-corhuila/csp-workflow#1): `POST /api/v1/sagas/book-seats` and `GET /api/v1/sagas/{id}` are proxied with the method each declares and need the `Authorization` header (401 with the common envelope without it); any other path or method under `/api/v1/sagas`, and the liveness probe `/api/v1/health` of the workflow, are the gateway's 404. New variable `APP_GATEWAY_WORKFLOW_UPSTREAM` (default `http://workflow:8086`).
+- Route `/api/v1/concessions/` to `csp-concessions-api` (HU-CONCESSIONS-006, `concessions-service.yaml` 2.4.0): the health routes are public; products, combos and orders accept GET and POST, `PATCH` changes the status of a product or a combo, and the order, cancellation and stock operations take the method the contract declares, all with `Authorization` required (401 without it). `/internal/*` (the operations of `csp-worker`) and any other path or method answer the gateway's 404. New variable `APP_GATEWAY_CONCESSIONS_UPSTREAM` (default `http://concessions-api:8085`).
+- Route `POST /api/v1/auth/register/confirm` to `csp-auth-api` (code-corhuila/csp-docs#282, ADR-062, `auth-service.yaml` 1.17.0): the second step of the registration, which creates the account when the owner of the mailbox opens the link. Without it the gateway answered its own 404 and no registration could be confirmed. It is public, as `register`, and shares the bucket `auth_credentials` with `login` and `register` (ADR-060); smoke checks for the public pass and for the shared bucket.
+
+### Changed
+- `APP_GATEWAY_CATALOG_UPSTREAM` defaults to `https://catalog-api:8082` (`.env.example`, Dockerfile, compose); an `http://` value is refused at start. The CI builds a throwaway CA for the `nginx -t` and smoke steps.
+- The preflight answer (`OPTIONS` -> 204) moves to its own snippet, `snippets/preflight.conf`, included by `route-common.conf` and by the credential locations; the other routes behave as before. `login`, `register` and `forgot-password` leave the public auth location and no longer use the `per_client` zone (code-corhuila/csp-docs#281, #24).
+
+### Fixed
+- Route `GET /api/v1/ticketing/me/notifications` to `csp-ticketing-api` (HU-TICKETING-005, code-corhuila/csp-api-gateway#40): it is implemented by the service but answered the gateway's 404 because only `me/tickets` was routed. It is treated as the other ticketing routes: header required (401 without it) and any other method is 404.
+- Route the exact path `/api/v1/auth/me` (`GET` and `PATCH`, own profile) to `csp-auth-api` with the treatment of the other protected auth routes; it answered the gateway's 404 because only `me/.+` was matched (HU-AUTH-007, #21).
+- Strip the client-supplied `X-User-Id` and `X-User-Roles` request headers before proxying, on every route (HU-AUTH-004, D6). The gateway does not validate tokens and adds no `X-User-*` headers (ADR-028), so it only strips them.
+- Expose `Retry-After` in `Access-Control-Expose-Headers`, so a browser from an allowed origin can read the `Retry-After` of a 429 (HU-AUTH-004, D7).
+- Answer with exactly one `X-Correlation-Id`: the one a service sets is hidden and the gateway's own is sent (HU-AUTH-004, D9).
+- Reflect the client `X-Correlation-Id` (response header, `traceId` of the gateway errors, service request, access log) only when it matches `^[A-Za-z0-9._-]{1,64}$`; otherwise the gateway generates one. A quote or backslash no longer injects fields or breaks the JSON of the errors the gateway writes (HU-AUTH-004, D8).
+
+### Added
+- Route the Catalog administration (`/api/v1/catalog/{movies,rooms,showtimes}` with GET and POST, and `/{id}` with GET, PATCH and DELETE) to `csp-catalog-api` with the treatment of the other protected routes (Authorization required, the token and the permission are checked by the service); the availability of a showtime stays unexposed (`catalog-service.yaml` 1.10.0, code-corhuila/csp-catalog-portal#82).
+- Stricter rate limit for the credential routes, per client IP (code-corhuila/csp-docs#281, #24, ADR-060): `POST /api/v1/auth/login` and `POST /api/v1/auth/register` share the zone `auth_credentials` (2 r/s, burst 3) and `/api/v1/auth/forgot-password` has the zone `auth_forgot` (1 r/s, burst 2), so a flood cannot exhaust the bcrypt work of `csp-auth-api` (STRIDE D). Over the limit the answer is the gateway's `429 TOO_MANY_REQUESTS` with `Retry-After: 1`. Every other route keeps `per_client`. Burst checks in `tests/smoke.sh`.
+- Integration checks against real gateway containers and an upstream stub (`tests/integration.sh`), run by `ci.yml`.
+- Route `/api/v1/booking/` to `csp-booking-api` (HU-CATALOG-005, `booking-service.yaml` 3.3.0): the health routes are public; `POST /holds`, `GET /reservations`, `GET /reservations/{id}`, `POST /reservations/{id}/confirm` and `GET /showtimes/{showtimeId}/seats` require the presence of `Authorization` and only their own method is routed; `/internal/*` (maintenance and workflow) is never exposed and any other path is the gateway's 404. New variable `APP_GATEWAY_BOOKING_UPSTREAM` (default `http://booking-api:8083`).
+- Route `/api/v1/catalog/` to `csp-catalog-api` (HU-FE-CATALOG-002): the two public reads of the contract,
+  `GET /billboard` and `GET /billboard/movies`, pass without `Authorization` and any other path or method
+  under it is the gateway's 404 (the administration routes and the availability of a showtime are not exposed).
+  New variable `APP_GATEWAY_CATALOG_UPSTREAM` (default `http://catalog-api:8082`).
+- Base scaffold of the declarative NGINX gateway (Annex F): `nginx/` configuration,
+  `deploy/Dockerfile` and `deploy/compose.yml` (service `api-gateway`, port 8000),
+  `tests/smoke.sh` and the `ci.yml` pipeline.
+- Stateless per-IP rate limiting (`limit_req`), anchored CORS origin regex rendered from
+  `APP_GATEWAY_CORS_ORIGIN_REGEX`, `X-Correlation-Id` handling and the shared error envelope.
+- `/health` of the gateway itself.
+- Route `/api/v1/auth/` to `csp-auth-api` (HU-AUTH-003): public operations pass without
+  `Authorization`, `logout`, `/users`, `/me/*` and `/users/{userId}/role` require its presence, and
+  `/api/v1/auth/internal/` is not exposed. The upstream is `APP_GATEWAY_AUTH_UPSTREAM`
+  (default `http://auth-api:8081`). CORS preflight is answered by the gateway and the rate limit
+  applies to the route.
